@@ -74,6 +74,7 @@ public:
 	virtual bool FindFirst(const char * _dir,DOS_DTA & dta,bool fcb_findfirst=false);
 	virtual bool FindNext(DOS_DTA & dta);
 	virtual bool SetFileAttr(const char * name,uint16_t attr);
+	virtual bool GetDiskSize64(uint64_t * _disk_size64);
 	virtual bool GetFileAttr(const char * name,uint16_t * attr);
 	virtual bool GetFileAttrEx(char* name, struct stat *status);
 	std::string GetHostName(const char * name);
@@ -402,6 +403,7 @@ public:
 		void clear(void);
 	};
 public:
+    uint8_t driveStatus = 0; //0=unpartitioned 1=unformatted 2=formatted (DOS perspective)
 	uint8_t readSector(uint32_t sectnum, void * data);
 	uint8_t writeSector(uint32_t sectnum, void * data);
 	uint32_t getAbsoluteSectFromBytePos(uint32_t startClustNum, uint32_t bytePos,clusterChainMemory *ccm=NULL);
@@ -417,10 +419,12 @@ public:
 	bool directoryChange(uint32_t dirClustNumber, const direntry *useEntry, int32_t entNum);
 	const FAT_BootSector::bpb_union_t &GetBPB(void);
 	void SetBPB(const FAT_BootSector::bpb_union_t &bpb);
-	imageDisk *loadedDisk = NULL;
+    void reloadDrive();
+    imageDisk *loadedDisk = NULL;
 	uint8_t req_ver_major = 0,req_ver_minor = 0;
 	bool created_successfully = true;
 	uint32_t partSectOff;
+    std::vector<std::string> mountOptions;
 	struct {
 		uint32_t bytesector;
 		uint32_t cylsector;

@@ -34,7 +34,7 @@ bool DOS_IOCTL_AX440D_CH08(uint8_t drive,bool query) {
 			{
 				if (strncmp(Drives[drive]->GetInfo(),"fatDrive ",9)) {
 					DOS_SetError(DOSERR_ACCESS_DENIED);
-					return false;
+					return false; 
 				}				
 				fatDrive *fdp = dynamic_cast<fatDrive*>(Drives[drive]);
 				if (fdp == NULL || fdp->readonly) {
@@ -81,7 +81,7 @@ bool DOS_IOCTL_AX440D_CH08(uint8_t drive,bool query) {
         case 0x60:		/* Get device parameters */
 			if (query) break;
 			{
-                //mem_writeb(ptr+0,0);					// special functions (call value)
+                mem_writeb(ptr+0,0x04); // special functions. bit 0: 0 if new default BPB; bit 2: 1 if all sectors are identical
                 mem_writeb(ptr+1,(drive>=2)?0x05:0x07);	// type: hard disk(5), 1.44 floppy(7)
                 mem_writew(ptr+2,(drive>=2)?0x01:0x00);	// attributes: bit 0 set for nonremovable
                 mem_writew(ptr+4,(drive>=2)?0x3FF:0x50);// number of cylinders
@@ -93,9 +93,12 @@ bool DOS_IOCTL_AX440D_CH08(uint8_t drive,bool query) {
                 if (!strncmp(Drives[drive]->GetInfo(),"fatDrive ",9)) {
                     fdp = dynamic_cast<fatDrive*>(Drives[drive]);
                     if (fdp != NULL) {
+                        mem_writew(ptr+4,(drive>=2)?(uint16_t)fdp->loadedDisk->cylinders:0x50);// set *real* number of cylinders
                         bpb=fdp->GetBPB();
-                        if (bpb.v.BPB_BytsPerSec && bpb.v.BPB_Media)
-                            usereal=true;
+                        if(bpb.v.BPB_BytsPerSec && bpb.v.BPB_Media) {
+                            usereal = true;
+                            mem_writeb(ptr+0,0x05);
+                        }
                     }
                 }
                 if (usereal) {
@@ -132,18 +135,22 @@ bool DOS_IOCTL_AX440D_CH08(uint8_t drive,bool query) {
                         mem_writed(ptr+0x1c,(uint32_t)bpb.v.BPB_TotSec32);          // number of big sectors
                     }
                 } else {
-                    mem_writew(ptr+7,0x0200);									// bytes per sector (Win3 File Mgr. uses it)
-                    mem_writew(ptr+9,(drive>=2)?0x20:0x01);						// sectors per cluster
-                    mem_writew(ptr+0xa,0x0001);									// number of reserved sectors
-                    mem_writew(ptr+0xc,0x02);									// number of FATs
-                    mem_writew(ptr+0xd,(drive>=2)?0x0200:0x00E0);				// number of root entries
-                    mem_writew(ptr+0xf,(drive>=2)?0x0000:0x0B40);				// number of small sectors
+                    // Real MS-DOS fills the "default" BPB with very accurate data!
+                    // We try to do as accurate as possible, setting dummy values only
+                    // when complex calculations would be necessary
+                    mem_writew(ptr+7,fdp?fdp->loadedDisk->sector_size:0x200);	// bytes per sector (Win3 File Mgr. uses it)
+                    mem_writew(ptr+9,(drive>=2)?0x20:0x01);						// sectors per cluster (dummy)
+                    mem_writew(ptr+0xa,0x0001);									// number of reserved sectors (dummy)
+                    mem_writew(ptr+0xc,0x02);									// number of FATs (dummy, but more realistic)
+                    mem_writew(ptr+0xd,(drive>=2)?0x0200:0x00E0);				// number of root entries (dummy)
+                    uint32_t largeSectors = fdp ? fdp->getSectorCount() : 0x32000;
+                    mem_writew(ptr+0xf,largeSectors<65535? largeSectors:0);     // number of small sectors
                     mem_writew(ptr+0x11,(drive>=2)?0xF8:0xF0);					// media type
-                    mem_writew(ptr+0x12,(drive>=2)?0x00C9:0x0009);				// sectors per FAT
-                    mem_writew(ptr+0x14,(drive>=2)?0x003F:0x0012);				// sectors per track
-                    mem_writew(ptr+0x16,(drive>=2)?0x10:0x02);					// number of heads
-                    mem_writed(ptr+0x18,0); 									// number of hidden sectors
-                    mem_writed(ptr+0x1c,(drive>=2)?0x31F11:0x00); 				// number of big sectors
+                    mem_writew(ptr+0x12,(drive>=2)?0x00C9:0x0009);				// sectors per FAT (dummy)
+                    mem_writew(ptr+0x14,fdp?fdp->loadedDisk->sectors:63);      	// sectors per track 
+                    mem_writew(ptr+0x16,fdp?fdp->loadedDisk->heads:16);      	// number of heads
+                    mem_writed(ptr+0x18,0); 									// number of hidden sectors (dummy)
+                    mem_writed(ptr+0x1c,largeSectors);	                		// number of big sectors
                 }
                 for (int i=0x20; i<0x22; i++)
                     mem_writeb(ptr+i,0);

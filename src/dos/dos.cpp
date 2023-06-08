@@ -1720,6 +1720,8 @@ static Bitu DOS_21Handler(void) {
                             mem_writew(SegPhys(ds)+reg_bx+0x1F,free_clusters);
                     }
                     LOG(LOG_DOSMISC,LOG_NORMAL)("Get drive parameter block.");
+                    fatDrive* fdp = dynamic_cast<fatDrive*>(Drives[drive]);
+                    if(fdp != NULL) fdp->reloadDrive();
                 } else {
                     reg_al=0xff;
                 }
@@ -2738,9 +2740,9 @@ static Bitu DOS_21Handler(void) {
                             else
                                 c = reg_dl; // SBCS
 
-                            if (tolower(c) == 'y')
+                            if (tolower(c) == MSG_Get("INT21_6523_YESNO_CHARS")[0])
                                 reg_ax = 1;/*yes*/
-                            else if (tolower(c) == 'n')
+                            else if (tolower(c) == MSG_Get("INT21_6523_YESNO_CHARS")[1])
                                 reg_ax = 0;/*no*/
                             else
                                 reg_ax = 2;/*neither*/

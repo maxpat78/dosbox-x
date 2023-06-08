@@ -6081,8 +6081,7 @@ private:
         for (ct = 0; ct < imgDisks.size(); ct++) {
             DriveManager::CycleDisks(drive - 'A', (ct == (imgDisks.size() - 1)));
 
-            char root[7] = { drive, ':', '\\', '*', '.', '*', 0 };
-            DOS_FindFirst(root, DOS_ATTR_VOLUME); // force obtaining the label and saving it in dirCache
+            char root[7] = { drive, ':', '\\', '*', '.', '*', 0 };            DOS_FindFirst(root, DOS_ATTR_VOLUME); // force obtaining the label and saving it in dirCache
         }
         dos.dta(save_dta);
 
@@ -7776,7 +7775,7 @@ private:
 // Converts a string disk size with unit into a 64-bit unsigned integer
 uint64_t VHDMAKE::ssizetou64(const char* s_size) {
     char* sizes = "BKMGT";
-    char* sd_size = strdup(s_size);
+    char* sd_size = _strdup(s_size);
     char* last = sd_size + strlen(s_size) - 1;
     char* c;
     uint64_t size;
@@ -7892,15 +7891,21 @@ void VHDMAKE::Run()
     }
 
     if(cmd->FindExist("-c", true) || cmd->FindExist("-convert", true)) {
-        if(cmd->GetCount() > 2) {
+        if(cmd->GetCount() != 2) {
             PrintUsage();
             return;
         }
         cmd->FindCommand(1, temp_line);
         safe_strcpy(filename, temp_line.c_str()); // image to convert
+        FILE* f;
+        if(!(f = fopen(filename, "r"))) {
+            WriteOut(MSG_Get("PROGRAM_VHDMAKE_ERROPEN"), filename);
+            return;
+        }
+        fclose(f);
         cmd->FindCommand(2, temp_line);
         safe_strcpy(basename, temp_line.c_str()); // resulting VHD (after renaming)
-        if(access(basename, 0) == 0) {
+        if(_access(basename, 0) == 0) {
             if(!bOverwrite) {
                 WriteOut(MSG_Get("PROGRAM_VHDMAKE_FNEEDED"));
                 return;
@@ -7933,7 +7938,7 @@ void VHDMAKE::Run()
             return;
         }
 #endif
-        if(! bOverwrite && access(filename, 0) == 0) {
+        if(! bOverwrite && _access(filename, 0) == 0) {
             WriteOut(MSG_Get("PROGRAM_VHDMAKE_FNEEDED"));
             return;
         }
@@ -7954,7 +7959,7 @@ void VHDMAKE::Run()
             WriteOut(MSG_Get("PROGRAM_VHDMAKE_BADSIZE"));
             return;
         }
-        if(!bOverwrite && access(filename, 0) == 0) {
+        if(!bOverwrite && _access(filename, 0) == 0) {
             WriteOut(MSG_Get("PROGRAM_VHDMAKE_FNEEDED"));
             return;
         }
@@ -9415,6 +9420,7 @@ void DOS_SetupPrograms(void) {
             "\033[1mCO80\033[0m, \033[1mBW80\033[0m, \033[1mCO40\033[0m, \033[1mBW40\033[0m, or \033[1mMONO\033[0m\n"
             "\033[34;1mMODE CON COLS=\033[0mc \033[34;1mLINES=\033[0mn :columns and lines, c=80 or 132, n=25, 43, 50, or 60\n"
             "\033[34;1mMODE CON RATE=\033[0mr \033[34;1mDELAY=\033[0md :typematic rates, r=1-32 (32=fastest), d=1-4 (1=lowest)\n");
+    MSG_Add("INT21_6523_YESNO_CHARS", "yn");
     MSG_Add("PROGRAM_MODE_INVALID_PARAMETERS","Invalid parameter(s).\n");
     MSG_Add("PROGRAM_PORT_INVALID_NUMBER","Must specify a port number between 1 and 9.\n");
     MSG_Add("PROGRAM_VHDMAKE_WRITERR", "Could not write to new VHD image \"%s\", aborting.\n");
@@ -9437,7 +9443,8 @@ void DOS_SetupPrograms(void) {
     MSG_Add("PROGRAM_VHDMAKE_ABSPATH_WIN", "Warning: an absolute path to parent limits portability to Windows.\nPlease prefer a path relative to differencing image file!\n");
     MSG_Add("PROGRAM_VHDMAKE_ABSPATH_UX", "ERROR: an absolute path to parent inhibits portability.\nUse a path relative to differencing image file!\n");
     MSG_Add("PROGRAM_VHDMAKE_HELP",
-        "Creates Dynamic or Differencing VHD images, or converts raw images\ninto Fixed VHD.\n"
+        "Creates Dynamic or Differencing VHD images, converts raw images\ninto Fixed VHD,\n"
+        "shows informations about VHD images and merges them.\n"
         "\033[32;1mVHDMAKE\033[0m [-f] new.vhd size[BKMGT]\n"
         "\033[32;1mVHDMAKE\033[0m \033[34;1m-convert\033[0m raw.hdd new.vhd\n"
         "\033[32;1mVHDMAKE\033[0m [-f] \033[34;1m-link\033[0m parent.vhd new.vhd\n"
