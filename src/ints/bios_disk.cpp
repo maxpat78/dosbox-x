@@ -2208,7 +2208,7 @@ static Bitu INT13_DiskHandler(void) {
                 return CBRET_NONE;
             }
         }
-        if (driveInactive(drivenum)) {
+        if (driveInactive(drivenum) && Drives[drivenum] == NULL) {
             reg_ah = 0xff;
             CALLBACK_SCF(true);
             return CBRET_NONE;
@@ -2216,8 +2216,15 @@ static Bitu INT13_DiskHandler(void) {
 
         segat = dap.seg;
         bufptr = dap.off;
+        sector_size = 512;
         for(i=0;i<dap.num;i++) {
-            last_status = imageDiskList[drivenum]->Read_AbsoluteSector(dap.sector+i, sectbuf);
+            if (imageDiskList[drivenum] != NULL)
+                last_status = imageDiskList[drivenum]->Read_AbsoluteSector(dap.sector+i, sectbuf);
+            else if(Drives[drivenum] != NULL && !memcmp("isoDrive", Drives[drivenum]->info, 8)) {
+                isoDrive* iso = reinterpret_cast<isoDrive*>(Drives[drivenum]);
+                last_status = ! iso->readSector(sectbuf, dap.sector + i);
+                sector_size = 2048;
+            }
 
             if(drivenum < 2)
                 diskio_delay(512, 0); // Floppy
@@ -2233,7 +2240,7 @@ static Bitu INT13_DiskHandler(void) {
                 CALLBACK_SCF(true);
                 return CBRET_NONE;
             }
-            for(t=0;t<512;t++) {
+            for(t=0;t<sector_size;t++) {
                 real_writeb(segat,bufptr,sectbuf[t]);
                 bufptr++;
             }
