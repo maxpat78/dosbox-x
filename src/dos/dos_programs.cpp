@@ -2251,6 +2251,72 @@ public:
         }
 
         if(imageDiskList[drive-65]==NULL) {
+            if(Drives[drive - 65] && !memcmp("isoDrive", Drives[drive - 65]->info, 8)) {
+                uint8_t sector[2048];
+                isoDrive* iso = reinterpret_cast<isoDrive*>(Drives[drive - 65]);
+                iso->readSector(sector, 0x11); //Boot Record V.D.
+                if(sector[0] != 0 || sector[6] != 1 || memcmp(sector + 1, "CD001", 5) || memcmp(sector + 7, "EL TORITO SPECIFICATION", 23)) {
+                    if(!quiet) WriteOut(MSG_Get("PROGRAM_BOOT_UNABLE"), drive);
+                    return;
+                }
+                uint32_t* boot_catalog_lba = (uint32_t*) (sector + 0x47);
+                iso->readSector(sector, *boot_catalog_lba); //seek Boot Catalog
+                //Offsets: 20h: bootable? 21h: 0=No Emulation 26h: 4 sectors 28h: LBA of boot sector
+                if(sector[0] != 1 || sector[1] != 0 || sector[0x1E] != 0x55 || sector[0x1F] != 0xAA || sector[0x20] != 0x88 || sector[0x21] != 0 || sector[0x26] != 4) {
+                    if(!quiet) WriteOut(MSG_Get("PROGRAM_BOOT_UNABLE"), drive);
+                    return;
+                }
+                uint32_t* boot_sector_lba = (uint32_t*)(sector + 0x28);
+                iso->readSector(sector, *boot_sector_lba);
+                if(sector[2046] != 0x55 || sector[2047] != 0xAA) {
+                    if(!quiet) WriteOut(MSG_Get("PROGRAM_BOOT_UNABLE"), drive);
+                    return;
+                }
+                //check for AA55 magic
+                unsigned int bootsize = 2048;
+                load_seg = IS_PC98_ARCH ? (0x2000 - (bootsize / 16U)) : 0x07C0;
+                const uint8_t page = real_readb(BIOSMEM_SEG, BIOSMEM_CURRENT_PAGE);
+
+                if(quiet < 2) {
+                    char msg[512] = { 0 };
+                    if(!strlen(msg)) strcat(msg, CURSOR_POS_COL(page) > 0 ? "\r\n" : "");
+                    strcat(msg, MSG_Get("PROGRAM_BOOT_BOOTING"));
+                    strcat(msg, std::string(1, drive).c_str());
+                    strcat(msg, "...\r\n");
+                    uint16_t s = (uint16_t)strlen(msg);
+                    DOS_WriteFile(STDERR, (uint8_t*)msg, &s);
+                }
+                for(i = 0; i < bootsize; i++) real_writeb(0, (uint16_t)((load_seg << 4) + i), sector[i]);
+                LOG_MSG("Booting guest OS stack_seg=0x%04x load_seg=0x%04x\n", (int)stack_seg, (int)load_seg);
+
+                SegSet16(cs, 0);
+                SegSet16(ds, 0);
+                SegSet16(es, 0);
+                reg_ip = (uint16_t)(load_seg << 4);
+                reg_ebx = (uint32_t)(load_seg << 4); //Real code probably uses bx to load the image
+                reg_esp = 0x100;
+                /* set up stack at a safe place */
+                SegSet16(ss, (uint16_t)stack_seg);
+                reg_esi = 0;
+                reg_ecx = 1;
+                reg_ebp = 0;
+                reg_eax = 0;
+                reg_edx = 0;
+                if(drive >= 'A' && drive <= 'B')
+                    reg_edx += (unsigned int)(drive - 'A');
+                else if(drive >= 'C' && drive <= 'Z')
+                    reg_edx += 0x80u + (unsigned int)(drive - 'C');
+#ifdef __WIN32__
+                // let menu know it boots
+                menu.boot = true;
+#endif
+                bootguest = false;
+                bootdrive = drive - 65;
+
+                /* forcibly exit the shell, the DOS kernel, and anything else by throwing an exception */
+                throw int(2);
+                return;
+            }
             if (!quiet) WriteOut(MSG_Get("PROGRAM_BOOT_UNABLE"), drive);
             return;
         }
