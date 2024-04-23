@@ -1148,7 +1148,7 @@ public:
         bool iscdrom = (type =="cdrom"); //Used for mscdex bug cdrom label name emulation
         bool exist = false, removed = false;
         if (type=="floppy" || type=="dir" || type=="cdrom" || type =="overlay") {
-            uint16_t sizes[4] = { 0 };
+            uint64_t sizes[4] = { 0 };
             uint8_t mediaid;
             std::string str_size = "";
             if (type=="floppy") {
@@ -1181,9 +1181,9 @@ public:
 					uint32_t tmp=(uint32_t)freesize*1024*1024/(type=="cdrom"?2048*1:512*32);
                     if(tmp > 65534) numc = type == "cdrom" ? (tmp + 65535) / 65536 : 64;
                     uint32_t free_size_cyl=(uint32_t)freesize*1024*1024/(numc*(type=="cdrom"?2048:512));
-                    if (free_size_cyl>65534) free_size_cyl=65534;
+                    //if (free_size_cyl>65534) free_size_cyl=65534;
                     if (total_size_cyl<free_size_cyl) total_size_cyl=free_size_cyl+10;
-                    if (total_size_cyl>65534) total_size_cyl=65534;
+                    //if (total_size_cyl>65534) total_size_cyl=65534;
                     sprintf(teststr,type=="cdrom"?"2048,%u,%u,%u":"512,%u,%u,%u",numc,total_size_cyl,free_size_cyl);
                 }
                 str_size=teststr;

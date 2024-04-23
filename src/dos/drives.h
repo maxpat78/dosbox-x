@@ -62,7 +62,7 @@ private:
 
 class localDrive : public DOS_Drive {
 public:
-	localDrive(const char * startdir,uint16_t _bytes_sector,uint8_t _sectors_cluster,uint16_t _total_clusters,uint16_t _free_clusters,uint8_t _mediaid, std::vector<std::string> &options);
+	localDrive(const char * startdir,uint16_t _bytes_sector,uint16_t _sectors_cluster,uint64_t _total_clusters,uint64_t _free_clusters,uint8_t _mediaid, std::vector<std::string> &options);
 	bool FileOpen(DOS_File * * file,const char * name,uint32_t flags) override;
 	virtual FILE *GetSystemFilePtr(char const * const name, char const * const type); 
 	virtual bool GetSystemFilename(char* sysName, char const * const dosName); 
@@ -104,10 +104,10 @@ public:
 	void MediaChange() override {};
 	const char* getBasedir() const {return basedir;};
 	struct {
-		uint16_t bytes_sector;
-		uint8_t sectors_cluster;
-		uint16_t total_clusters;
-		uint16_t free_clusters;
+		uint32_t bytes_sector;
+		uint32_t sectors_cluster;
+		uint64_t total_clusters;
+		uint64_t free_clusters;
 		uint8_t mediaid;
 		unsigned long initfree;
 	} allocation;

@@ -2649,7 +2649,7 @@ next:
     return false;
 }
 
-localDrive::localDrive(const char * startdir,uint16_t _bytes_sector,uint8_t _sectors_cluster,uint16_t _total_clusters,uint16_t _free_clusters,uint8_t _mediaid, std::vector<std::string> &options) : special_prefix_local(prefix_local.c_str()) {
+localDrive::localDrive(const char * startdir,uint16_t _bytes_sector,uint16_t _sectors_cluster,uint64_t _total_clusters,uint64_t _free_clusters,uint8_t _mediaid, std::vector<std::string> &options) : special_prefix_local(prefix_local.c_str()) {
 	strcpy(basedir,startdir);
 	sprintf(info,"local directory %s",startdir);
 	allocation.bytes_sector=_bytes_sector;
